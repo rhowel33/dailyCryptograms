@@ -13,7 +13,9 @@ type Props = {
 
 function TileImpl({ encChar, guess, selected, solved, onSelect }: Props) {
   const showLetter = guess ?? "";
-  const colorClass = solved ? "text-cryptoBlue" : "text-slate-900";
+  const letterColorClass = solved
+    ? "text-[color:var(--tile-text-solved)]"
+    : "text-[color:var(--tile-text)]";
 
   return (
     <button
@@ -23,23 +25,27 @@ function TileImpl({ encChar, guess, selected, solved, onSelect }: Props) {
       className={`relative flex h-14 w-10 sm:h-16 sm:w-12 flex-col items-center justify-between
                   rounded-md border-2 px-1 pb-1 pt-2
                   font-serif transition-shadow select-none
-                  ${selected ? "border-amber-700 shadow-md ring-2 ring-amber-500" : "border-amber-400"}
-                  bg-tile-face`}
+                  bg-[color:var(--tile-face)]
+                  ${
+                    selected
+                      ? "border-[color:var(--tile-border-active)] shadow-md ring-2 ring-[color:var(--accent-ring)]"
+                      : "border-[color:var(--tile-border)]"
+                  }`}
       style={{
         boxShadow: selected
-          ? "0 2px 0 #a47a3a, 0 4px 8px rgba(0,0,0,0.18)"
-          : "0 2px 0 #caa86a",
+          ? "0 2px 0 var(--tile-shadow), 0 4px 8px rgba(0,0,0,0.18)"
+          : "0 2px 0 var(--tile-edge)",
       }}
     >
       <span
-        className={`text-xl sm:text-2xl font-semibold leading-none ${colorClass} ${
+        className={`text-xl sm:text-2xl font-semibold leading-none ${letterColorClass} ${
           solved ? "tile-pop" : ""
         }`}
         key={`${encChar}-${showLetter}`}
       >
-        {showLetter || " "}
+        {showLetter || " "}
       </span>
-      <span className="text-[10px] sm:text-xs uppercase tracking-wider text-amber-900/70">
+      <span className="text-[10px] sm:text-xs uppercase tracking-wider text-[color:var(--tile-label)]">
         {encChar}
       </span>
     </button>

@@ -21,8 +21,12 @@ export default function Keyboard({ onKey, usedGuesses }: Props) {
                 type="button"
                 onClick={() => onKey(k)}
                 className={`h-11 w-8 sm:w-9 rounded border text-sm font-semibold
-                            ${used ? "bg-slate-300 text-slate-500" : "bg-white hover:bg-amber-100"}
-                            border-slate-300`}
+                            border-[color:var(--key-border)]
+                            ${
+                              used
+                                ? "bg-[color:var(--key-used-bg)] text-[color:var(--key-used-text)]"
+                                : "bg-[color:var(--key-bg)] text-[color:var(--ink)] hover:bg-[color:var(--key-bg-hover)]"
+                            }`}
               >
                 {k}
               </button>
@@ -32,7 +36,11 @@ export default function Keyboard({ onKey, usedGuesses }: Props) {
             <button
               type="button"
               onClick={() => onKey("BACKSPACE")}
-              className="h-11 rounded border border-slate-300 bg-white px-3 text-xs font-semibold hover:bg-amber-100"
+              className="h-11 rounded border px-3 text-xs font-semibold
+                         border-[color:var(--key-border)]
+                         bg-[color:var(--key-bg)]
+                         text-[color:var(--ink)]
+                         hover:bg-[color:var(--key-bg-hover)]"
             >
               ⌫
             </button>

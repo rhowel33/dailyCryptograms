@@ -7,14 +7,9 @@ const config: Config = {
       fontFamily: {
         serif: ['"Georgia"', '"Times New Roman"', "serif"],
       },
-      colors: {
-        tile: {
-          face: "#e8d4a8",
-          edge: "#caa86a",
-          shadow: "#a47a3a",
-        },
-        cryptoBlue: "#2546e0",
-      },
+      // All colors are driven by CSS variables defined per-theme in globals.css.
+      // Components reference them via arbitrary-value utilities like
+      // `bg-[color:var(--bg)]` so the theme can swap without a rebuild.
     },
   },
   plugins: [],

@@ -3,17 +3,31 @@ export type SavedProgress = {
   guess: Record<string, string>; // encrypted letter -> guessed plain letter (uppercase)
   hints: number;
   solved: boolean;
+  // Fingerprint of the puzzle this progress belongs to. The guess map is
+  // keyed by encrypted letters, so a change to either the quote or the
+  // cipher makes saved guesses meaningless — the encrypted string captures
+  // both and lets us detect the mismatch on load.
+  encrypted: string;
 };
 
 const KEY_PREFIX = "dc-progress:";
 
-export function loadProgress(dateKey: string): SavedProgress | null {
+/**
+ * Load saved progress for `dateKey` only if it was recorded against the same
+ * puzzle that's currently being rendered (`encrypted` must match). Mismatched
+ * or legacy entries return null so the user starts fresh against the live puzzle.
+ */
+export function loadProgress(
+  dateKey: string,
+  encrypted: string
+): SavedProgress | null {
   if (typeof window === "undefined") return null;
   try {
     const raw = window.localStorage.getItem(KEY_PREFIX + dateKey);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as SavedProgress;
     if (parsed.dateKey !== dateKey) return null;
+    if (parsed.encrypted !== encrypted) return null;
     return parsed;
   } catch {
     return null;

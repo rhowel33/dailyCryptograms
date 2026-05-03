@@ -2,9 +2,133 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Light / default — original parchment + amber. */
 :root {
   --bg: #f7f1e3;
   --ink: #1f2937;
+  --ink-muted: rgba(120, 53, 15, 0.7);
+  --ink-soft: rgba(120, 53, 15, 0.6);
+  --ink-hint: rgba(120, 53, 15, 0.3);
+
+  --accent: #78350f;            /* amber-900 */
+  --accent-bg: #fef3c7;         /* amber-100 */
+  --accent-bg-hover: #fde68a;   /* amber-200 */
+  --accent-border: #b45309;     /* amber-700 */
+  --accent-ring: #f59e0b;       /* amber-500 */
+
+  --punct: #1e293b;             /* slate-800 */
+
+  --tile-face: #e8d4a8;
+  --tile-edge: #caa86a;
+  --tile-shadow: #a47a3a;
+  --tile-border: #fbbf24;       /* amber-400 */
+  --tile-border-active: #b45309;
+  --tile-text: #0f172a;
+  --tile-text-solved: #2546e0;
+  --tile-label: rgba(120, 53, 15, 0.7);
+
+  --key-bg: #ffffff;
+  --key-bg-hover: #fef3c7;
+  --key-used-bg: #cbd5e1;       /* slate-300 */
+  --key-used-text: #64748b;     /* slate-500 */
+  --key-border: #cbd5e1;
+
+  --modal-bg: #000000;
+  --modal-text: #ffffff;
+  --modal-overlay: rgba(0, 0, 0, 0.4);
+  --modal-btn-bg: rgba(255, 255, 255, 0.1);
+  --modal-btn-bg-hover: rgba(255, 255, 255, 0.2);
+  --modal-btn-border: rgba(255, 255, 255, 0.4);
+
+  --secondary-bg: #ffffff;
+  --secondary-bg-hover: #f1f5f9;
+  --secondary-border: #94a3b8;
+}
+
+/* Dark — slate background, brighter amber accents. */
+.theme-dark {
+  --bg: #0f172a;
+  --ink: #e2e8f0;
+  --ink-muted: rgba(226, 232, 240, 0.7);
+  --ink-soft: rgba(226, 232, 240, 0.6);
+  --ink-hint: rgba(226, 232, 240, 0.25);
+
+  --accent: #fbbf24;
+  --accent-bg: #1e293b;
+  --accent-bg-hover: #334155;
+  --accent-border: #fbbf24;
+  --accent-ring: #f59e0b;
+
+  --punct: #e2e8f0;
+
+  --tile-face: #334155;
+  --tile-edge: #1e293b;
+  --tile-shadow: #0b1220;
+  --tile-border: #475569;
+  --tile-border-active: #fbbf24;
+  --tile-text: #f8fafc;
+  --tile-text-solved: #60a5fa;
+  --tile-label: rgba(226, 232, 240, 0.55);
+
+  --key-bg: #1e293b;
+  --key-bg-hover: #334155;
+  --key-used-bg: #475569;
+  --key-used-text: #94a3b8;
+  --key-border: #334155;
+
+  --modal-bg: #1e293b;
+  --modal-text: #f1f5f9;
+  --modal-overlay: rgba(0, 0, 0, 0.6);
+  --modal-btn-bg: rgba(255, 255, 255, 0.08);
+  --modal-btn-bg-hover: rgba(255, 255, 255, 0.16);
+  --modal-btn-border: rgba(255, 255, 255, 0.3);
+
+  --secondary-bg: #1e293b;
+  --secondary-bg-hover: #334155;
+  --secondary-border: #475569;
+}
+
+/* Sepia — warmer paper, richer browns. */
+.theme-sepia {
+  --bg: #ede0c8;
+  --ink: #3a2410;
+  --ink-muted: rgba(58, 36, 16, 0.75);
+  --ink-soft: rgba(58, 36, 16, 0.6);
+  --ink-hint: rgba(58, 36, 16, 0.3);
+
+  --accent: #6b3410;
+  --accent-bg: #e6cfa3;
+  --accent-bg-hover: #d8bd86;
+  --accent-border: #6b3410;
+  --accent-ring: #b8702b;
+
+  --punct: #3a2410;
+
+  --tile-face: #d4a76a;
+  --tile-edge: #a37536;
+  --tile-shadow: #6b4815;
+  --tile-border: #b8702b;
+  --tile-border-active: #6b3410;
+  --tile-text: #2a1808;
+  --tile-text-solved: #1d3666;
+  --tile-label: rgba(58, 36, 16, 0.7);
+
+  --key-bg: #f5e8c8;
+  --key-bg-hover: #e6cfa3;
+  --key-used-bg: #b8a482;
+  --key-used-text: #6b5840;
+  --key-border: #a37536;
+
+  --modal-bg: #2a1808;
+  --modal-text: #f5e8c8;
+  --modal-overlay: rgba(42, 24, 8, 0.55);
+  --modal-btn-bg: rgba(245, 232, 200, 0.1);
+  --modal-btn-bg-hover: rgba(245, 232, 200, 0.2);
+  --modal-btn-border: rgba(245, 232, 200, 0.4);
+
+  --secondary-bg: #f5e8c8;
+  --secondary-bg-hover: #e6cfa3;
+  --secondary-border: #a37536;
 }
 
 html,
