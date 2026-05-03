@@ -74,6 +74,10 @@ export default function Cryptogram({ puzzleNumber }: Props = {}) {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [showWin, setShowWin] = useState(false);
   const [solved, setSolved] = useState(false);
+  // Unix-ms of first interaction; null until the user types or hints.
+  const [startedAt, setStartedAt] = useState<number | null>(null);
+  // Final solve time, frozen at the moment of solve.
+  const [durationMs, setDurationMs] = useState<number | null>(null);
   const [streak, setStreak] = useState<StreakData>({
     current: 0,
     longest: 0,
@@ -119,11 +123,15 @@ export default function Cryptogram({ puzzleNumber }: Props = {}) {
     setShowWin(false);
     setSelectedEnc(null);
     setSelectedIndex(null);
+    setStartedAt(null);
+    setDurationMs(null);
     const saved = loadProgress(p.dateKey, p.encrypted);
     if (saved) {
       setGuess(saved.guess ?? {});
       setHints(saved.hints ?? 0);
       setSolved(saved.solved ?? false);
+      setStartedAt(saved.startedAt ?? null);
+      setDurationMs(saved.durationMs ?? null);
       winShownRef.current = saved.solved ?? false;
     }
   }, [puzzleNumber, isArchive]);
@@ -143,11 +151,15 @@ export default function Cryptogram({ puzzleNumber }: Props = {}) {
         setShowWin(false);
         setSelectedEnc(null);
         setSelectedIndex(null);
+        setStartedAt(null);
+        setDurationMs(null);
         const saved = loadProgress(next.dateKey, next.encrypted);
         if (saved) {
           setGuess(saved.guess);
           setHints(saved.hints);
           setSolved(saved.solved);
+          setStartedAt(saved.startedAt ?? null);
+          setDurationMs(saved.durationMs ?? null);
           winShownRef.current = saved.solved;
         }
       }
@@ -164,9 +176,11 @@ export default function Cryptogram({ puzzleNumber }: Props = {}) {
       hints,
       solved,
       encrypted: puzzle.encrypted,
+      startedAt,
+      durationMs,
     };
     saveProgress(data);
-  }, [puzzle, guess, hints, solved]);
+  }, [puzzle, guess, hints, solved, startedAt, durationMs]);
 
   const encLettersInPuzzle = useMemo(() => {
     if (!puzzle) return new Set<string>();
@@ -192,8 +206,15 @@ export default function Cryptogram({ puzzleNumber }: Props = {}) {
       setSolved(true);
       setShowWin(true);
       winShownRef.current = true;
+      // Freeze final solve time. Use the function form so we don't overwrite
+      // a duration already loaded from storage (in case of reload-after-solve).
+      setDurationMs((prev) => {
+        if (prev !== null) return prev;
+        if (startedAt === null) return null;
+        return Date.now() - startedAt;
+      });
     }
-  }, [guess, encLettersInPuzzle, puzzle]);
+  }, [guess, encLettersInPuzzle, puzzle, startedAt]);
 
   const tokens = useMemo(() => (puzzle ? tokenize(puzzle.encrypted) : []), [puzzle]);
   const words = useMemo(() => groupIntoWords(tokens), [tokens]);
@@ -247,6 +268,9 @@ export default function Cryptogram({ puzzleNumber }: Props = {}) {
       }
       const k = key.toUpperCase();
       if (!/^[A-Z]$/.test(k)) return;
+      // Start the solve timer on the first real input (after we've established
+      // a selection and we're about to commit a letter).
+      setStartedAt((prev) => prev ?? Date.now());
       if (!selectedEnc) {
         // Pick the first empty position in puzzle order.
         const firstEmpty = tokens.find(
@@ -303,6 +327,7 @@ export default function Cryptogram({ puzzleNumber }: Props = {}) {
     }
     if (!unsolved.length) return;
     const pick = unsolved[Math.floor(Math.random() * unsolved.length)];
+    setStartedAt((prev) => prev ?? Date.now());
     setGuess((prev) => {
       const next: Record<string, string> = {};
       const correct = puzzle.cipher[pick];
@@ -320,6 +345,8 @@ export default function Cryptogram({ puzzleNumber }: Props = {}) {
     setGuess({});
     setSelectedEnc(null);
     setSelectedIndex(null);
+    setStartedAt(null);
+    setDurationMs(null);
   }, []);
 
   if (isArchive && archiveStatus === "locked") {
@@ -437,15 +464,12 @@ export default function Cryptogram({ puzzleNumber }: Props = {}) {
               if (tok.kind === "letter") {
                 const enc = tok.ch;
                 const g = guess[enc];
-                const correct = puzzle.cipher[enc];
-                const isSolved = g === correct;
                 return (
                   <Tile
                     key={ti}
                     encChar={enc}
                     guess={g}
                     selected={selectedEnc === enc}
-                    solved={isSolved}
                     index={tok.index}
                     onSelect={() => {
                       setSelectedEnc(enc);
@@ -472,6 +496,7 @@ export default function Cryptogram({ puzzleNumber }: Props = {}) {
           quote={puzzle.quote}
           hints={hints}
           puzzleNumber={puzzle.number}
+          durationMs={durationMs}
           streak={isArchive ? null : effectiveCurrent(streak, puzzle.dateKey)}
           onClose={() => setShowWin(false)}
         />

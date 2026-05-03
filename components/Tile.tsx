@@ -6,17 +6,16 @@ type Props = {
   encChar: string; // single uppercase A-Z
   guess: string | undefined; // uppercase A-Z or undefined
   selected: boolean;
-  solved: boolean;
   onSelect: () => void;
   index: number;
 };
 
-function TileImpl({ encChar, guess, selected, solved, onSelect }: Props) {
+function TileImpl({ encChar, guess, selected, onSelect }: Props) {
   const showLetter = guess ?? "";
-  const letterColorClass = solved
-    ? "text-[color:var(--tile-text-solved)]"
-    : "text-[color:var(--tile-text)]";
 
+  // Intentionally no correct-vs-wrong visual differentiation on the guess
+  // letter: revealing it would let players brute-force the puzzle by typing
+  // every letter into a tile and watching for the color change.
   return (
     <button
       type="button"
@@ -38,9 +37,7 @@ function TileImpl({ encChar, guess, selected, solved, onSelect }: Props) {
       }}
     >
       <span
-        className={`text-xl sm:text-2xl font-semibold leading-none ${letterColorClass} ${
-          solved ? "tile-pop" : ""
-        }`}
+        className="text-xl sm:text-2xl font-semibold leading-none text-[color:var(--tile-text)]"
         key={`${encChar}-${showLetter}`}
       >
         {showLetter || " "}

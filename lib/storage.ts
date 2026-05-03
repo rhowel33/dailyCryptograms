@@ -8,6 +8,11 @@ export type SavedProgress = {
   // cipher makes saved guesses meaningless — the encrypted string captures
   // both and lets us detect the mismatch on load.
   encrypted: string;
+  // Unix-ms timestamp of the first user input on this puzzle, or null if the
+  // user hasn't typed anything yet. Persisted so the timer survives reloads.
+  startedAt: number | null;
+  // Final solve duration in ms, frozen the moment the puzzle is solved.
+  durationMs: number | null;
 };
 
 const KEY_PREFIX = "dc-progress:";
