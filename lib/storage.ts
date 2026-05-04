@@ -56,3 +56,30 @@ export function clearProgress(dateKey: string): void {
     // ignore
   }
 }
+
+const DATE_KEY_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Removes daily-progress entries whose date is strictly before `todayKey`.
+ * Past dailies are unreachable — the loader only matches against the current
+ * `localDateKey()`, so older entries are dead weight. Archive entries
+ * (`dc-progress:archive-N`) are intentionally preserved so users can resume
+ * a half-finished archive puzzle on a later visit.
+ */
+export function pruneStaleProgress(todayKey: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    const ls = window.localStorage;
+    const toRemove: string[] = [];
+    for (let i = 0; i < ls.length; i++) {
+      const key = ls.key(i);
+      if (!key || !key.startsWith(KEY_PREFIX)) continue;
+      const suffix = key.slice(KEY_PREFIX.length);
+      if (!DATE_KEY_RE.test(suffix)) continue; // skip archive-* and other shapes
+      if (suffix < todayKey) toRemove.push(key); // YYYY-MM-DD compares lexicographically
+    }
+    for (const key of toRemove) ls.removeItem(key);
+  } catch {
+    // ignore quota / disabled storage
+  }
+}

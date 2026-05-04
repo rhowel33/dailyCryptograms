@@ -60,7 +60,11 @@ function buildPuzzleFromQuote(
 ): Puzzle {
   const rng = rngFromString(cipherSeed);
   const cipher = buildCipher(rng);
-  const encrypted = encrypt(quote.text, cipher);
+  // Encrypt the attribution as part of the puzzle so the player has to decode
+  // the author's name too. The "--" separator is preserved verbatim by the
+  // cipher (non-letters pass through), giving a clear visual divider.
+  const plaintext = `${quote.text} -- ${quote.author}`;
+  const encrypted = encrypt(plaintext, cipher);
   return { dateKey: storageKey, number, quote, cipher, encrypted };
 }
 

@@ -10,10 +10,17 @@ import {
   localDateKey,
   msUntilLocalMidnight,
   puzzleByNumber,
+  puzzleNumberForDate,
   todaysPuzzle,
+  totalPuzzleCount,
   type Puzzle,
 } from "@/lib/daily";
-import { loadProgress, saveProgress, type SavedProgress } from "@/lib/storage";
+import {
+  loadProgress,
+  pruneStaleProgress,
+  saveProgress,
+  type SavedProgress,
+} from "@/lib/storage";
 import {
   effectiveCurrent,
   loadStreak,
@@ -90,9 +97,10 @@ export default function Cryptogram({ puzzleNumber }: Props = {}) {
   >(isArchive ? "checking" : "released");
   const winShownRef = useRef(false);
 
-  // Load streak on mount.
+  // Load streak on mount and prune unreachable past-daily progress entries.
   useEffect(() => {
     setStreak(loadStreak());
+    pruneStaleProgress(localDateKey());
   }, []);
 
   // Record a solve into the streak when the daily puzzle is solved.
@@ -349,6 +357,29 @@ export default function Cryptogram({ puzzleNumber }: Props = {}) {
     setDurationMs(null);
   }, []);
 
+  // Jump to a random archive puzzle. Skips a 1-year window of upcoming dailies
+  // so we don't spoil quotes the user is about to see, but otherwise pulls
+  // from the entire corpus — that way the random pool isn't pathologically
+  // small in the early days of the launch. Also skips the puzzle currently
+  // on screen so clicking always navigates somewhere new.
+  const handleRandom = useCallback(() => {
+    const total = totalPuzzleCount();
+    const todayN = puzzleNumberForDate();
+    const LOOKAHEAD_DAYS = 365;
+    const blockStart = todayN;
+    const blockEnd = Math.min(total, todayN + LOOKAHEAD_DAYS);
+    const currentN = isArchive ? puzzleNumber! : null;
+    const candidates: number[] = [];
+    for (let n = 1; n <= total; n++) {
+      if (n >= blockStart && n <= blockEnd) continue;
+      if (n === currentN) continue;
+      candidates.push(n);
+    }
+    if (!candidates.length) return;
+    const pick = candidates[Math.floor(Math.random() * candidates.length)];
+    window.location.href = `/archive/${pick}`;
+  }, [isArchive, puzzleNumber]);
+
   if (isArchive && archiveStatus === "locked") {
     return (
       <div className="mx-auto max-w-xl text-center">
@@ -444,6 +475,17 @@ export default function Cryptogram({ puzzleNumber }: Props = {}) {
                      hover:bg-[color:var(--secondary-bg-hover)]"
         >
           Clear
+        </button>
+        <button
+          type="button"
+          onClick={handleRandom}
+          className="rounded border px-3 py-1.5
+                     border-[color:var(--secondary-border)]
+                     bg-[color:var(--secondary-bg)]
+                     text-[color:var(--ink)]
+                     hover:bg-[color:var(--secondary-bg-hover)]"
+        >
+          Random puzzle
         </button>
       </div>
 
