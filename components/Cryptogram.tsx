@@ -668,6 +668,8 @@ export default function Cryptogram({
               ? null
               : effectiveCurrent(streak, puzzle.dateKey)
           }
+          shareable={!isRandom}
+          onNewRandom={isRandom ? handleRandom : undefined}
           onClose={() => setShowWin(false)}
         />
       )}

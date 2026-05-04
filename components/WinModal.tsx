@@ -12,6 +12,12 @@ type Props = {
   durationMs: number | null;
   // Current daily streak after this solve. null when not applicable (archive mode).
   streak: number | null;
+  // Whether to offer a Share button. False for /random sessions because the
+  // route doesn't pin to a specific puzzle for the recipient.
+  shareable: boolean;
+  // Callback to start another random puzzle. Provided in /random mode only;
+  // when present, the modal renders a "Try another" button.
+  onNewRandom?: () => void;
   onClose: () => void;
 };
 
@@ -46,6 +52,8 @@ export default function WinModal({
   puzzleNumber,
   durationMs,
   streak,
+  shareable,
+  onNewRandom,
   onClose,
 }: Props) {
   const [copied, setCopied] = useState(false);
@@ -105,16 +113,30 @@ export default function WinModal({
           </p>
         )}
         <div className="mt-6 flex flex-wrap gap-3">
-          <button
-            type="button"
-            onClick={handleShare}
-            className="rounded border px-4 py-2
-                       border-[color:var(--modal-btn-border)]
-                       bg-[color:var(--modal-btn-bg)]
-                       hover:bg-[color:var(--modal-btn-bg-hover)]"
-          >
-            {copied ? "Copied!" : "Share result"}
-          </button>
+          {shareable && (
+            <button
+              type="button"
+              onClick={handleShare}
+              className="rounded border px-4 py-2
+                         border-[color:var(--modal-btn-border)]
+                         bg-[color:var(--modal-btn-bg)]
+                         hover:bg-[color:var(--modal-btn-bg-hover)]"
+            >
+              {copied ? "Copied!" : "Share result"}
+            </button>
+          )}
+          {onNewRandom && (
+            <button
+              type="button"
+              onClick={onNewRandom}
+              className="rounded border px-4 py-2
+                         border-[color:var(--modal-btn-border)]
+                         bg-[color:var(--modal-btn-bg)]
+                         hover:bg-[color:var(--modal-btn-bg-hover)]"
+            >
+              Try another
+            </button>
+          )}
           <button
             type="button"
             onClick={onClose}
