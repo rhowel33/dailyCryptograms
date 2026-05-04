@@ -264,14 +264,35 @@ export default function Cryptogram({ puzzleNumber }: Props = {}) {
     (key: string) => {
       if (!puzzle) return;
       if (key === "BACKSPACE") {
-        if (selectedEnc) {
-          setGuess((prev) => {
-            const next = { ...prev };
-            delete next[selectedEnc];
-            return next;
-          });
-          advanceSelection(-1);
+        if (selectedIndex === null) return;
+        // Walk backward (including the current position) until we find a tile
+        // with a guess, clear it, and park the cursor there. Mirrors how
+        // backspace works in a text input: empty cell → step back and erase.
+        const letterTokens = tokens.filter(
+          (t): t is Extract<Token, { kind: "letter" }> => t.kind === "letter"
+        );
+        if (!letterTokens.length) return;
+        let target: { ch: string; index: number } | null = null;
+        for (let step = 0; step < letterTokens.length; step++) {
+          const i =
+            ((selectedIndex - step) % letterTokens.length +
+              letterTokens.length) %
+            letterTokens.length;
+          const candidate = letterTokens[i];
+          if (guess[candidate.ch]) {
+            target = { ch: candidate.ch, index: candidate.index };
+            break;
+          }
         }
+        if (!target) return;
+        const targetCh = target.ch;
+        setGuess((prev) => {
+          const next = { ...prev };
+          delete next[targetCh];
+          return next;
+        });
+        setSelectedEnc(target.ch);
+        setSelectedIndex(target.index);
         return;
       }
       const k = key.toUpperCase();
@@ -302,7 +323,7 @@ export default function Cryptogram({ puzzleNumber }: Props = {}) {
       });
       advanceSelection(1);
     },
-    [puzzle, selectedEnc, guess, tokens, advanceSelection]
+    [puzzle, selectedEnc, selectedIndex, guess, tokens, advanceSelection]
   );
 
   useEffect(() => {
