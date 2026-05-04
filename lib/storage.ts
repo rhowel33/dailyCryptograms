@@ -57,6 +57,32 @@ export function clearProgress(dateKey: string): void {
   }
 }
 
+// The "current random" pointer. Persists which puzzle the /random route is
+// showing across reloads, so refreshing /random doesn't yank a fresh puzzle
+// out from under the user.
+const RANDOM_CURRENT_KEY = "dc-random-current";
+
+export function loadCurrentRandom(): number | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(RANDOM_CURRENT_KEY);
+    if (!raw) return null;
+    const n = Number.parseInt(raw, 10);
+    return Number.isInteger(n) && n >= 1 ? n : null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveCurrentRandom(n: number): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(RANDOM_CURRENT_KEY, String(n));
+  } catch {
+    // ignore
+  }
+}
+
 const DATE_KEY_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 /**

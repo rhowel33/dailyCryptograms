@@ -52,6 +52,31 @@ export function totalPuzzleCount(): number {
   return quotes.length;
 }
 
+/**
+ * Pick a random puzzle number from the entire corpus, skipping a 1-year
+ * window of upcoming dailies (so we don't spoil quotes the user is about to
+ * see) and any number in `exclude`. Returns null if the candidate set is
+ * empty (shouldn't happen with a full corpus, but defensive).
+ */
+export function pickRandomPuzzleNumber(
+  exclude: ReadonlySet<number> = new Set(),
+  now: Date = new Date()
+): number | null {
+  const total = quotes.length;
+  const todayN = puzzleNumberForDate(now);
+  const LOOKAHEAD_DAYS = 365;
+  const blockStart = todayN;
+  const blockEnd = Math.min(total, todayN + LOOKAHEAD_DAYS);
+  const candidates: number[] = [];
+  for (let n = 1; n <= total; n++) {
+    if (n >= blockStart && n <= blockEnd) continue;
+    if (exclude.has(n)) continue;
+    candidates.push(n);
+  }
+  if (!candidates.length) return null;
+  return candidates[Math.floor(Math.random() * candidates.length)];
+}
+
 function buildPuzzleFromQuote(
   storageKey: string,
   cipherSeed: string,

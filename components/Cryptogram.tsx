@@ -9,15 +9,18 @@ import {
   isPuzzleReleased,
   localDateKey,
   msUntilLocalMidnight,
+  pickRandomPuzzleNumber,
   puzzleByNumber,
   puzzleNumberForDate,
   todaysPuzzle,
-  totalPuzzleCount,
   type Puzzle,
 } from "@/lib/daily";
 import {
+  clearProgress,
+  loadCurrentRandom,
   loadProgress,
   pruneStaleProgress,
+  saveCurrentRandom,
   saveProgress,
   type SavedProgress,
 } from "@/lib/storage";
@@ -31,7 +34,14 @@ import {
 type Props = {
   // When provided, render that archive puzzle instead of today's daily.
   puzzleNumber?: number;
+  // Random mode: read the active puzzle number from localStorage (or pick one
+  // and store it on first visit). Mutually exclusive with `puzzleNumber`.
+  randomMode?: boolean;
 };
+
+// Storage dateKey used for the active /random session. A constant — every
+// new random pick clobbers the previous random's saved progress, by design.
+const RANDOM_DATE_KEY = "random";
 
 type Token =
   | { kind: "letter"; ch: string; index: number } // ch is uppercase encrypted A-Z
@@ -69,8 +79,12 @@ function groupIntoWords(tokens: Token[]): Token[][] {
   return words;
 }
 
-export default function Cryptogram({ puzzleNumber }: Props = {}) {
+export default function Cryptogram({
+  puzzleNumber,
+  randomMode = false,
+}: Props = {}) {
   const isArchive = puzzleNumber !== undefined;
+  const isRandom = randomMode;
   const [puzzle, setPuzzle] = useState<Puzzle | null>(null);
   const [guess, setGuess] = useState<Record<string, string>>({}); // enc -> guessed plain
   const [hints, setHints] = useState(0);
@@ -111,8 +125,10 @@ export default function Cryptogram({ puzzleNumber }: Props = {}) {
     setStreak(recordSolve(puzzle.dateKey));
   }, [puzzle, isArchive, solved]);
 
-  // On mount (or when puzzleNumber changes): load the puzzle and any saved progress.
+  // On mount (or when puzzleNumber/randomMode changes): load the puzzle and
+  // any saved progress.
   useEffect(() => {
+    let p: Puzzle | null;
     if (isArchive) {
       if (!isPuzzleReleased(puzzleNumber!)) {
         setArchiveStatus("locked");
@@ -120,8 +136,24 @@ export default function Cryptogram({ puzzleNumber }: Props = {}) {
         return;
       }
       setArchiveStatus("released");
+      p = puzzleByNumber(puzzleNumber!);
+    } else if (isRandom) {
+      // Read the active random pick from localStorage; if none, pick one now
+      // and persist it so refreshes stay on the same puzzle.
+      let n = loadCurrentRandom();
+      if (n === null) {
+        n = pickRandomPuzzleNumber();
+        if (n === null) return;
+        saveCurrentRandom(n);
+      }
+      const built = puzzleByNumber(n);
+      if (!built) return;
+      // Override the storage key so all random progress lives under a single
+      // localStorage entry that gets clobbered when the user picks again.
+      p = { ...built, dateKey: RANDOM_DATE_KEY };
+    } else {
+      p = todaysPuzzle();
     }
-    const p = isArchive ? puzzleByNumber(puzzleNumber!) : todaysPuzzle();
     if (!p) return;
     setPuzzle(p);
     setGuess({});
@@ -142,12 +174,12 @@ export default function Cryptogram({ puzzleNumber }: Props = {}) {
       setDurationMs(saved.durationMs ?? null);
       winShownRef.current = saved.solved ?? false;
     }
-  }, [puzzleNumber, isArchive]);
+  }, [puzzleNumber, isArchive, isRandom]);
 
   // Roll over to the next day's puzzle automatically at local midnight.
-  // Only applies to the daily mode — archive puzzles are pinned by number.
+  // Only applies to the daily mode — archive and random puzzles are pinned.
   useEffect(() => {
-    if (!puzzle || isArchive) return;
+    if (!puzzle || isArchive || isRandom) return;
     const t = window.setTimeout(() => {
       const next = todaysPuzzle();
       if (next.dateKey !== puzzle.dateKey) {
@@ -173,7 +205,7 @@ export default function Cryptogram({ puzzleNumber }: Props = {}) {
       }
     }, msUntilLocalMidnight() + 500);
     return () => window.clearTimeout(t);
-  }, [puzzle, isArchive]);
+  }, [puzzle, isArchive, isRandom]);
 
   // Persist progress per day.
   useEffect(() => {
@@ -378,28 +410,29 @@ export default function Cryptogram({ puzzleNumber }: Props = {}) {
     setDurationMs(null);
   }, []);
 
-  // Jump to a random archive puzzle. Skips a 1-year window of upcoming dailies
-  // so we don't spoil quotes the user is about to see, but otherwise pulls
-  // from the entire corpus — that way the random pool isn't pathologically
-  // small in the early days of the launch. Also skips the puzzle currently
-  // on screen so clicking always navigates somewhere new.
+  // Jump to a random puzzle through the /random route. Picks any number in
+  // the corpus except (a) the next year of upcoming dailies — no spoilers —
+  // (b) today's daily, and (c) whatever puzzle the user is already looking at.
+  // The pick is stored as the "current random"; previous random progress is
+  // wiped so the new puzzle starts fresh, while archive progress is untouched.
   const handleRandom = useCallback(() => {
-    const total = totalPuzzleCount();
-    const todayN = puzzleNumberForDate();
-    const LOOKAHEAD_DAYS = 365;
-    const blockStart = todayN;
-    const blockEnd = Math.min(total, todayN + LOOKAHEAD_DAYS);
-    const currentN = isArchive ? puzzleNumber! : null;
-    const candidates: number[] = [];
-    for (let n = 1; n <= total; n++) {
-      if (n >= blockStart && n <= blockEnd) continue;
-      if (n === currentN) continue;
-      candidates.push(n);
+    const exclude = new Set<number>();
+    exclude.add(puzzleNumberForDate()); // never re-skin today's daily
+    if (isArchive && puzzleNumber !== undefined) exclude.add(puzzleNumber);
+    if (isRandom) {
+      const current = loadCurrentRandom();
+      if (current !== null) exclude.add(current);
     }
-    if (!candidates.length) return;
-    const pick = candidates[Math.floor(Math.random() * candidates.length)];
-    window.location.href = `/archive/${pick}`;
-  }, [isArchive, puzzleNumber]);
+    const pick = pickRandomPuzzleNumber(exclude);
+    if (pick === null) return;
+    clearProgress(RANDOM_DATE_KEY);
+    saveCurrentRandom(pick);
+    if (window.location.pathname === "/random") {
+      window.location.reload();
+    } else {
+      window.location.href = "/random";
+    }
+  }, [isArchive, isRandom, puzzleNumber]);
 
   if (isArchive && archiveStatus === "locked") {
     return (
@@ -442,9 +475,11 @@ export default function Cryptogram({ puzzleNumber }: Props = {}) {
         <p className="mt-1 text-sm text-[color:var(--ink-muted)]">
           {isArchive
             ? `Cryptogram #${puzzle.number}`
-            : `Today's quote — ${puzzle.dateKey} · #${puzzle.number}`}
+            : isRandom
+              ? `Random puzzle #${puzzle.number}`
+              : `Today's quote — ${puzzle.dateKey} · #${puzzle.number}`}
         </p>
-        {!isArchive && (
+        {!isArchive && !isRandom && (
           <p className="mt-2 text-xs text-[color:var(--ink-muted)]">
             Streak:{" "}
             <span className="font-semibold">
@@ -458,7 +493,7 @@ export default function Cryptogram({ puzzleNumber }: Props = {}) {
             )}
           </p>
         )}
-        {isArchive && (
+        {(isArchive || isRandom) && (
           <p className="mt-1 text-xs">
             <a
               href="/"
@@ -560,7 +595,11 @@ export default function Cryptogram({ puzzleNumber }: Props = {}) {
           hints={hints}
           puzzleNumber={puzzle.number}
           durationMs={durationMs}
-          streak={isArchive ? null : effectiveCurrent(streak, puzzle.dateKey)}
+          streak={
+            isArchive || isRandom
+              ? null
+              : effectiveCurrent(streak, puzzle.dateKey)
+          }
           onClose={() => setShowWin(false)}
         />
       )}
