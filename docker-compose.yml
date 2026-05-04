@@ -4,3 +4,18 @@ services:
     ports:
       - "4567:3000"
     restart: unless-stopped
+    # Cap resources so a runaway request can't impact the host. Next.js
+    # standalone runs comfortably well under these limits for a static-ish app.
+    mem_limit: 512m
+    mem_reservation: 128m
+    cpus: 1.0
+    # Hardening: drop unneeded capabilities, prevent privilege escalation,
+    # and keep the rootfs read-only. The app writes nothing to disk at runtime.
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    # /tmp needs to stay writable for Node's internal scratch use.
+    tmpfs:
+      - /tmp

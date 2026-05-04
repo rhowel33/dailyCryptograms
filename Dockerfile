@@ -19,8 +19,12 @@ ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 
 # Standalone output ships its own copy of node_modules and a server.js.
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
+# Set ownership to the unprivileged `node` user (uid 1000, present in the
+# official node images) so the server doesn't run as root.
+COPY --from=builder --chown=node:node /app/.next/standalone ./
+COPY --from=builder --chown=node:node /app/.next/static ./.next/static
+
+USER node
 
 EXPOSE 3000
 
