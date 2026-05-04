@@ -13,6 +13,10 @@ export type SavedProgress = {
   startedAt: number | null;
   // Final solve duration in ms, frozen the moment the puzzle is solved.
   durationMs: number | null;
+  // Encrypted letters that were revealed via the hint button. Locked from
+  // backspace and overwrite so the player can't pay for a hint and then
+  // erase it accidentally.
+  hintedEncs: string[];
 };
 
 const KEY_PREFIX = "dc-progress:";

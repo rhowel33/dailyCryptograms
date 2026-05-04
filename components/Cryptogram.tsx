@@ -99,6 +99,13 @@ export default function Cryptogram({
   const [startedAt, setStartedAt] = useState<number | null>(null);
   // Final solve time, frozen at the moment of solve.
   const [durationMs, setDurationMs] = useState<number | null>(null);
+  // Transient note shown next to the hint button (e.g. "already correct").
+  const [hintNote, setHintNote] = useState<string | null>(null);
+  const hintNoteTimerRef = useRef<number | null>(null);
+  // Encrypted letters revealed via Hint. These slots are locked: the player
+  // can't backspace, overwrite, or have them displaced by typing the same
+  // letter elsewhere — once you've paid for a hint, you keep it.
+  const [hintedEncs, setHintedEncs] = useState<Set<string>>(new Set());
   const [streak, setStreak] = useState<StreakData>({
     current: 0,
     longest: 0,
@@ -165,6 +172,7 @@ export default function Cryptogram({
     setSelectedIndex(null);
     setStartedAt(null);
     setDurationMs(null);
+    setHintedEncs(new Set());
     const saved = loadProgress(p.dateKey, p.encrypted);
     if (saved) {
       setGuess(saved.guess ?? {});
@@ -172,6 +180,7 @@ export default function Cryptogram({
       setSolved(saved.solved ?? false);
       setStartedAt(saved.startedAt ?? null);
       setDurationMs(saved.durationMs ?? null);
+      setHintedEncs(new Set(saved.hintedEncs ?? []));
       winShownRef.current = saved.solved ?? false;
     }
   }, [puzzleNumber, isArchive, isRandom]);
@@ -193,6 +202,7 @@ export default function Cryptogram({
         setSelectedIndex(null);
         setStartedAt(null);
         setDurationMs(null);
+        setHintedEncs(new Set());
         const saved = loadProgress(next.dateKey, next.encrypted);
         if (saved) {
           setGuess(saved.guess);
@@ -200,6 +210,7 @@ export default function Cryptogram({
           setSolved(saved.solved);
           setStartedAt(saved.startedAt ?? null);
           setDurationMs(saved.durationMs ?? null);
+          setHintedEncs(new Set(saved.hintedEncs ?? []));
           winShownRef.current = saved.solved;
         }
       }
@@ -218,9 +229,10 @@ export default function Cryptogram({
       encrypted: puzzle.encrypted,
       startedAt,
       durationMs,
+      hintedEncs: Array.from(hintedEncs),
     };
     saveProgress(data);
-  }, [puzzle, guess, hints, solved, startedAt, durationMs]);
+  }, [puzzle, guess, hints, solved, startedAt, durationMs, hintedEncs]);
 
   const encLettersInPuzzle = useMemo(() => {
     if (!puzzle) return new Set<string>();
@@ -298,8 +310,8 @@ export default function Cryptogram({
       if (key === "BACKSPACE") {
         if (selectedIndex === null) return;
         // Walk backward (including the current position) until we find a tile
-        // with a guess, clear it, and park the cursor there. Mirrors how
-        // backspace works in a text input: empty cell → step back and erase.
+        // with a guess that isn't hinted, clear it, and park the cursor there.
+        // Hinted slots are locked, so they're skipped during the walk.
         const letterTokens = tokens.filter(
           (t): t is Extract<Token, { kind: "letter" }> => t.kind === "letter"
         );
@@ -311,7 +323,7 @@ export default function Cryptogram({
               letterTokens.length) %
             letterTokens.length;
           const candidate = letterTokens[i];
-          if (guess[candidate.ch]) {
+          if (guess[candidate.ch] && !hintedEncs.has(candidate.ch)) {
             target = { ch: candidate.ch, index: candidate.index };
             break;
           }
@@ -344,18 +356,24 @@ export default function Cryptogram({
         }
         return;
       }
+      // Hinted slots can't be overwritten — skip past so typing keeps flowing.
+      if (hintedEncs.has(selectedEnc)) {
+        advanceSelection(1);
+        return;
+      }
       setGuess((prev) => {
-        // assigning a letter that's already used elsewhere clears the old slot
+        // Assigning a letter that's already used elsewhere clears the old slot,
+        // except hinted slots — they're immovable, even on letter collision.
         const next: Record<string, string> = {};
         for (const [enc, val] of Object.entries(prev)) {
-          if (val !== k) next[enc] = val;
+          if (val !== k || hintedEncs.has(enc)) next[enc] = val;
         }
         next[selectedEnc] = k;
         return next;
       });
       advanceSelection(1);
     },
-    [puzzle, selectedEnc, selectedIndex, guess, tokens, advanceSelection]
+    [puzzle, selectedEnc, selectedIndex, guess, tokens, hintedEncs, advanceSelection]
   );
 
   useEffect(() => {
@@ -380,35 +398,85 @@ export default function Cryptogram({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [handleKey, advanceSelection, showWin]);
 
+  const flashHintNote = useCallback((msg: string) => {
+    setHintNote(msg);
+    if (hintNoteTimerRef.current !== null) {
+      window.clearTimeout(hintNoteTimerRef.current);
+    }
+    hintNoteTimerRef.current = window.setTimeout(() => {
+      setHintNote(null);
+      hintNoteTimerRef.current = null;
+    }, 2500);
+  }, []);
+
+  // Clean up the hint-note timer on unmount.
+  useEffect(
+    () => () => {
+      if (hintNoteTimerRef.current !== null) {
+        window.clearTimeout(hintNoteTimerRef.current);
+        hintNoteTimerRef.current = null;
+      }
+    },
+    []
+  );
+
+  // Reveal the correct letter for the selected tile (and every tile sharing
+  // its encrypted letter). If the user has already guessed it correctly,
+  // surface that and don't burn a hint. With no selection, fall back to
+  // revealing a random unsolved letter.
   const handleHint = useCallback(() => {
     if (!puzzle) return;
+    const revealEnc = (enc: string) => {
+      const correct = puzzle.cipher[enc];
+      setStartedAt((prev) => prev ?? Date.now());
+      setGuess((prev) => {
+        const next: Record<string, string> = {};
+        for (const [e, val] of Object.entries(prev)) {
+          // Same dedup rule as typing: hinted slots are immovable.
+          if (val !== correct || hintedEncs.has(e)) next[e] = val;
+        }
+        next[enc] = correct;
+        return next;
+      });
+      setHints((h) => h + 1);
+      setHintedEncs((prev) => {
+        const next = new Set(prev);
+        next.add(enc);
+        return next;
+      });
+    };
+    if (selectedEnc !== null) {
+      if (guess[selectedEnc] === puzzle.cipher[selectedEnc]) {
+        flashHintNote("That letter is already correct.");
+        return;
+      }
+      revealEnc(selectedEnc);
+      return;
+    }
     const unsolved: string[] = [];
     for (const enc of encLettersInPuzzle) {
       if (guess[enc] !== puzzle.cipher[enc]) unsolved.push(enc);
     }
     if (!unsolved.length) return;
-    const pick = unsolved[Math.floor(Math.random() * unsolved.length)];
-    setStartedAt((prev) => prev ?? Date.now());
-    setGuess((prev) => {
-      const next: Record<string, string> = {};
-      const correct = puzzle.cipher[pick];
-      for (const [enc, val] of Object.entries(prev)) {
-        if (val !== correct) next[enc] = val;
-      }
-      next[pick] = correct;
-      return next;
-    });
-    setHints((h) => h + 1);
-  }, [puzzle, guess, encLettersInPuzzle]);
+    revealEnc(unsolved[Math.floor(Math.random() * unsolved.length)]);
+  }, [puzzle, selectedEnc, guess, encLettersInPuzzle, hintedEncs, flashHintNote]);
 
   const handleClear = useCallback(() => {
     if (!confirm("Clear all your guesses?")) return;
-    setGuess({});
+    // Hinted letters were paid for and stay locked — preserve them across
+    // a clear. Hint counter is also preserved (we never call setHints here).
+    setGuess((prev) => {
+      const next: Record<string, string> = {};
+      for (const [enc, val] of Object.entries(prev)) {
+        if (hintedEncs.has(enc)) next[enc] = val;
+      }
+      return next;
+    });
     setSelectedEnc(null);
     setSelectedIndex(null);
     setStartedAt(null);
     setDurationMs(null);
-  }, []);
+  }, [hintedEncs]);
 
   // Jump to a random puzzle through the /random route. Picks any number in
   // the corpus except (a) the next year of upcoming dailies — no spoilers —
@@ -518,7 +586,7 @@ export default function Cryptogram({
           Hint
         </button>
         <span className="text-[color:var(--ink-muted)]">
-          {hints} {hints === 1 ? "hint" : "hints"} used
+          {hintNote ?? `${hints} ${hints === 1 ? "hint" : "hints"} used`}
         </span>
         <span className="mx-2 text-[color:var(--ink-hint)]">|</span>
         <button
