@@ -278,7 +278,7 @@ export default function Cryptogram({
   }, [guess]);
 
   const advanceSelection = useCallback(
-    (direction: 1 | -1) => {
+    (direction: 1 | -1, skipEnc?: string) => {
       if (!puzzle) return;
       const letterTokens = tokens.filter((t) => t.kind === "letter") as Extract<
         Token,
@@ -292,6 +292,13 @@ export default function Cryptogram({
       for (let step = 0; step < letterTokens.length; step++) {
         const wrapped = ((i % letterTokens.length) + letterTokens.length) % letterTokens.length;
         const candidate = letterTokens[wrapped];
+        // Skip tiles sharing the just-typed enc — `guess` here is the stale
+        // pre-update value, so those tiles still look empty even though they
+        // were just filled by propagation.
+        if (skipEnc !== undefined && candidate.ch === skipEnc) {
+          i += direction;
+          continue;
+        }
         // Land on the next empty cell so typing a known word flows naturally.
         if (!guess[candidate.ch]) {
           setSelectedEnc(candidate.ch);
@@ -371,7 +378,7 @@ export default function Cryptogram({
         next[selectedEnc] = k;
         return next;
       });
-      advanceSelection(1);
+      advanceSelection(1, selectedEnc);
     },
     [puzzle, selectedEnc, selectedIndex, guess, tokens, hintedEncs, advanceSelection]
   );
